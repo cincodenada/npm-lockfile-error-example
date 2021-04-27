@@ -31,6 +31,18 @@ assert_near() {
   fi
 }
 
+assert() {
+  msg=$1
+  shift;
+  if $@ > /dev/null; then
+    echo "OK: $msg"
+  else
+    echo "Failed at $msg"
+    exit 1
+  fi
+}
+
+
 show() {
   echo "Running: $@"; $@
 }
@@ -63,7 +75,7 @@ show npm install
   assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
 
 section "Installing symlink dependency"
-show npm install ../dependent-project
+show npm install ../local-library
   assert_absent "ansi_styles" package-lock.json "doesn't have deps of local-library embedded"
   assert_has "local-library" package-lock.json "does have local-library installed"
 
@@ -82,3 +94,15 @@ show npm install
 section "Removing symlink dependency"
 show npm uninstall local-library
   assert_has "local-library" package-lock.json "has remnant local-library (?)"
+  assert "local-library removed from node_modules" test ! -f node_modules/local-library
+
+section "Installing old version again"
+show npm install --no-save $PKG@$OLD
+  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "faker" "\"$OLD" node_modules/.package-lock.json "has $PKG @ $OLD"
+  assert_has "version.*\"$OLD" node_modules/faker/package.json "has $PKG @ $OLD"
+
+section "Running npm install"
+  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
