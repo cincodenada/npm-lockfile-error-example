@@ -1,0 +1,7 @@
+{
+  "name": "dependent-project",
+  "version": "1.0.0",
+  "dependencies": {
+    "local-library": "file:../local-library"
+  }
+}
