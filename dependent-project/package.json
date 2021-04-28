@@ -2,6 +2,7 @@
   "name": "dependent-project",
   "version": "1.0.0",
   "dependencies": {
+    "faker": "^5.5.3",
     "local-library": "file:../local-library"
   }
 }
