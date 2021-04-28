@@ -4,19 +4,28 @@ PKG=${1:-faker}
 OLD=${2:-4}
 NEW=${3:-5}
 
+set -e
+
+RED=$(tput setaf 1)
+RESET=$(tput sgr0)
+
+showerr() {
+  echo "${RED}$1${RESET}"
+}
+
 assert_has() {
   if grep $1 $2 > /dev/null; then
     echo "OK: $2 $3"
   else
-    echo "Failed at $2 $3"
-    exit 1
+    showerr "Failed at $2 $3"
+    return 1
   fi
 }
 
 assert_absent() {
   if grep $1 $2 > /dev/null; then
-    echo "Failed at $2 $3"
-    exit 1
+    showerr "Failed at $2 $3"
+    return 1
   else
     echo "OK: $2 $3"
   fi
@@ -26,8 +35,8 @@ assert_near() {
   if grep $1 $2 $4 | grep "$3" > /dev/null; then
     echo "OK: $4 $5"
   else
-    echo "Failed at $4 $5"
-    exit 1
+    showerr "Failed at $4 $5"
+    return 1
   fi
 }
 
@@ -37,8 +46,8 @@ assert() {
   if $@ > /dev/null; then
     echo "OK: $msg"
   else
-    echo "Failed at $msg"
-    exit 1
+    showerr "Failed at $msg"
+    return 1
   fi
 }
 
@@ -60,49 +69,50 @@ section "Installing fresh packages with ci"
 section "Installing demo package"
 show cd dependent-project
 show npm install $PKG
-  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
 
 section "Installing old version"
 show npm install --no-save $PKG@$OLD
-  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$OLD" node_modules/.package-lock.json "has $PKG @ $OLD"
-  assert_has "version.*\"$OLD" node_modules/faker/package.json "has $PKG @ $OLD"
+  assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "$PKG" "\"$OLD" node_modules/.package-lock.json "has $PKG @ $OLD"
+  assert_has "version.*\"$OLD" node_modules/$PKG/package.json "has $PKG @ $OLD"
 
 section "Running npm install"
 show npm install
-  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
+  assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "$PKG" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
+  assert_has "version.*\"$NEW" node_modules/$PKG/package.json "has $PKG @ $NEW"
 
 section "Installing symlink dependency"
 show npm install ../local-library
   assert_absent "ansi_styles" package-lock.json "doesn't have deps of local-library embedded"
   assert_has "local-library" package-lock.json "does have local-library installed"
 
-section "Installing old version again"
+section "Installing old version after installing symlink"
 show npm install --no-save $PKG@$OLD
-  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$OLD" node_modules/.package-lock.json "has $PKG @ $OLD"
-  assert_has "version.*\"$OLD" node_modules/faker/package.json "has $PKG @ $OLD"
+  assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "$PKG" "\"$OLD" node_modules/.package-lock.json "has $PKG @ $OLD"
+  assert_has "version.*\"$OLD" node_modules/$PKG/package.json "has $PKG @ $OLD"
 
-section "Running npm install"
+section "Running npm install after installing symlink"
 show npm install
-  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
+  assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "$PKG" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
+  assert_has "version.*\"$NEW" node_modules/$PKG/package.json "has $PKG @ $NEW"
 
 section "Removing symlink dependency"
 show npm uninstall local-library
-  assert_has "local-library" package-lock.json "has remnant local-library (?)"
+  assert_has "local-library" package-lock.json "has remnant local-library (?)" || echo "(Skipping, not critical)"
   assert "local-library removed from node_modules" test ! -f node_modules/local-library
 
-section "Installing old version again"
+section "Installing old version after removing symlink"
 show npm install --no-save $PKG@$OLD
-  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$OLD" node_modules/.package-lock.json "has $PKG @ $OLD"
-  assert_has "version.*\"$OLD" node_modules/faker/package.json "has $PKG @ $OLD"
+  assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "$PKG" "\"$OLD" node_modules/.package-lock.json "has $PKG @ $OLD"
+  assert_has "version.*\"$OLD" node_modules/$PKG/package.json "has $PKG @ $OLD"
 
-section "Running npm install"
-  assert_has "faker.*^$NEW" package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
-  assert_near -A1 "faker" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
+section "Running npm install after removing symlink"
+show npm install
+  assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "$PKG" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
+  assert_has "version.*\"$NEW" node_modules/$PKG/package.json "has $PKG @ $NEW"
