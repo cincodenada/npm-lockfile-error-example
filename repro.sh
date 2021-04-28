@@ -9,33 +9,43 @@ set -e
 RED=$(tput setaf 1)
 RESET=$(tput sgr0)
 
+getmod() {
+  if [ -f $1 ]; then
+    file=${1%package.json}
+    echo " ($file modified: $(modtime $file))"
+  fi
+}
+
+showok() {
+  echo "OK: $@$(getmod $@)"
+}
 showerr() {
-  echo "${RED}$1${RESET}"
+  echo "${RED}Failed at $@${RESET}$(getmod $@)"
 }
 
 assert_has() {
   if grep $1 $2 > /dev/null; then
-    echo "OK: $2 $3"
+    showok $2 $3
   else
-    showerr "Failed at $2 $3"
+    showerr $2 $3
     return 1
   fi
 }
 
 assert_absent() {
   if grep $1 $2 > /dev/null; then
-    showerr "Failed at $2 $3"
+    showerr $2 $3
     return 1
   else
-    echo "OK: $2 $3"
+    showok $2 $3
   fi
 }
 
 assert_near() {
   if grep $1 $2 $4 | grep "$3" > /dev/null; then
-    echo "OK: $4 $5"
+    showok $4 $5
   else
-    showerr "Failed at $4 $5"
+    showerr $4 $5
     return 1
   fi
 }
@@ -44,9 +54,9 @@ assert() {
   msg=$1
   shift;
   if $@ > /dev/null; then
-    echo "OK: $msg"
+    showok $msg
   else
-    showerr "Failed at $msg"
+    showerr $msg
     return 1
   fi
 }
@@ -68,6 +78,10 @@ reinit() {
   rm -rf $dir
   mkdir $dir
   (cd $dir && npm init -y && npm install --save $@)
+}
+
+modtime() {
+  stat -f "%Sm" "$@"
 }
 
 section "Reinitializing"
@@ -120,6 +134,19 @@ show npm install --no-save $PKG@$OLD
   assert_has "version.*\"$OLD" node_modules/$PKG/package.json "has $PKG @ $OLD"
 
 section "Running npm install after removing symlink"
+show npm install
+  assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
+  assert_near -A1 "$PKG" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
+  assert_has "version.*\"$NEW" node_modules/$PKG/package.json "has $PKG @ $NEW"
+
+section "Removing extraneous entry and re-installing"
+awk '
+{ indent=match($0, /[^[:space:]]/) }
+/local-library/ { deleteUntil=indent; next }
+indent <= deleteUntil { deleteUntil=0; next }
+!deleteUntil { print }' \
+  package-lock.json > package-lock.json.rewritten && \
+  mv package-lock.json.rewritten package-lock.json
 show npm install
   assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
   assert_near -A1 "$PKG" "\"$NEW" node_modules/.package-lock.json "has $PKG @ $NEW"
