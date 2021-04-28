@@ -62,13 +62,21 @@ section() {
   echo $1 | tr -c "\n" "="
 }
 
-section "Installing fresh packages with ci"
-(cd local-library && npm ci)
-(cd dependent-project && npm ci)
+reinit() {
+  dir=$1
+  shift
+  rm -rf $dir
+  mkdir $dir
+  (cd $dir && npm init -y && npm install --save $@)
+}
+
+section "Reinitializing"
+reinit local-library chalk
+reinit dependent-project
 
 section "Installing demo package"
 show cd dependent-project
-show npm install $PKG
+show npm install --save $PKG
   assert_has "$PKG.*^$NEW" package-lock.json "has $PKG @ $NEW"
 
 section "Installing old version"
@@ -84,7 +92,7 @@ show npm install
   assert_has "version.*\"$NEW" node_modules/$PKG/package.json "has $PKG @ $NEW"
 
 section "Installing symlink dependency"
-show npm install ../local-library
+show npm install --save ../local-library
   assert_absent "ansi_styles" package-lock.json "doesn't have deps of local-library embedded"
   assert_has "local-library" package-lock.json "does have local-library installed"
 
